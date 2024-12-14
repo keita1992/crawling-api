@@ -1,0 +1,122 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  crawling-api
+
+Parameters:
+  Stage:
+    Type: String
+    Description: The stage environment name.
+    AllowedValues:
+      - prod
+      - staging
+
+Resources:
+  LambdaFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub crawling-api-${Stage}
+      Handler: main.handler
+      Runtime: python3.9
+      Architectures:
+        - arm64
+      CodeUri: ./src # requirements.txtがあるディレクトリを指定する
+      MemorySize: 512
+      Timeout: 120
+      Role: !GetAtt LambdaFunctionRole.Arn
+      Environment:
+        Variables:
+          STAGE: !Ref Stage
+      Tags:
+        Stage: !Ref Stage
+        App: crawling-api
+
+  LambdaApiGatewayInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref LambdaFunction
+      Principal: apigateway.amazonaws.com
+
+  ApiGatewayCloudWatchLogsRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: apigateway.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs
+
+  ApiGatewayAccount:
+    Type: AWS::ApiGateway::Account
+    Properties:
+      CloudWatchRoleArn: !GetAtt ApiGatewayCloudWatchLogsRole.Arn
+
+  ApiGateway:
+    Type: AWS::Serverless::Api
+    DependsOn:
+      - ApiGatewayAccount
+    Properties:
+      Name: !Sub crawling-api-${Stage}
+      StageName: !Ref Stage
+      OpenApiVersion: 3.0.1 # SAMのバグで「Stage」という不要なステージが生成されるのを防ぐ
+      EndpointConfiguration:
+        Type: REGIONAL
+      Cors:
+        AllowOrigin: "'*'"
+        AllowHeaders: "'authorization, content-type, x-api-key'"
+        AllowMethods: "'POST'"
+        MaxAge: "'300'"
+        AllowCredentials: false
+      Auth:
+        ApiKeyRequired: true
+      MethodSettings:
+        - LoggingLevel: ERROR
+          DataTraceEnabled: false
+          HttpMethod: "*"
+          ResourcePath: "/*"
+      DefinitionBody:
+        swagger: "2.0"
+        info:
+          title:
+            Ref: AWS::StackName
+        paths:
+          /{proxy+}:
+            x-amazon-apigateway-any-method:
+              x-amazon-apigateway-integration:
+                httpMethod: POST
+                type: aws_proxy
+                uri:
+                  Fn::Sub: arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${LambdaFunction.Arn}/invocations
+                timeoutInMillis: 20000
+              responses: {}
+      GatewayResponses:
+        DEFAULT_4XX:
+          StatusCode: 403
+          ResponseTemplates:
+            application/json: '{"message": "Forbidden" }'
+
+  LambdaFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AWSLambdaExecute
+
+Outputs:
+  # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
+  # Find out more about other implicit resources you can reference within SAM
+  # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
+  LambdaFunction:
+    Description: "Lambda Function ARN"
+    Value: !GetAtt LambdaFunction.Arn

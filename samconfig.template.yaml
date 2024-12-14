@@ -1,0 +1,21 @@
+version: 0.1
+
+prod:
+  deploy:
+    parameters:
+      stack_name: crawling-api-prod
+      s3_bucket: # SAMアーティファクトを保管するバケット名を入れる
+      region: ap-northeast-1
+      capabilities: "CAPABILITY_IAM"
+      parameter_overrides:
+        - Stage=prod
+
+staging:
+  deploy:
+    parameters:
+      stack_name: crawling-api-staging
+      s3_bucket: # SAMアーティファクトを保管するバケット名を入れる
+      region: ap-northeast-1
+      capabilities: "CAPABILITY_IAM"
+      parameter_overrides:
+        - Stage=staging

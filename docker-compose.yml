@@ -1,0 +1,15 @@
+services:
+  fastapi:
+    build:
+      args:
+        USER_ID: ${USER_ID}
+        GROUP_ID: ${GROUP_ID}
+    env_file:
+      - .env
+    environment:
+      - PYTHONPATH=/app/src
+    tty: true
+    volumes:
+      - .:/app
+    ports:
+      - 8000:8000

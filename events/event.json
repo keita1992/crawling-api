@@ -1,0 +1,18 @@
+{
+  "version": "2.0",
+  "routeKey": "POST /v1/crawl",
+  "rawPath": "/v1/crawl",
+  "rawQueryString": "",
+  "headers": {
+    "content-type": "application/json"
+  },
+  "requestContext": {
+    "http": {
+      "method": "POST",
+      "path": "/v1/crawl",
+      "sourceIp": "127.0.0.1"
+    }
+  },
+  "body": "{\"url\": \"https://google.com\"}",
+  "isBase64Encoded": false
+}
